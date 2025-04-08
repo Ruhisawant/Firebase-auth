@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
+import 'profile_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,11 +21,45 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Firebase Auth Demo',
-      home: MyHomePage(title: 'Firebase Auth Demo'),
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
+      ),
+      home: AuthenticationWrapper(),
     );
   }
 }
 
+// Wrapper to control authentication flow
+class AuthenticationWrapper extends StatefulWidget {
+  @override
+  _AuthenticationWrapperState createState() => _AuthenticationWrapperState();
+}
+
+class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: _auth.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.active) {
+          final User? user = snapshot.data;
+          if (user == null) {
+            return MyHomePage(title: 'Firebase Auth Demo');
+          }
+          return ProfileScreen();
+        }
+        return Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      },
+    );
+  }
+}
 
 class MyHomePage extends StatefulWidget {
   MyHomePage({Key? key, required this.title}) : super(key: key);
@@ -37,26 +72,11 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  void _signOut() async {
-    await _auth.signOut();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Signed out successfully'),
-    ));
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
-        actions: <Widget>[
-          ElevatedButton(
-            onPressed: () {
-              _signOut();
-            },
-            child: Text('Sign Out'),
-          ),
-        ],
       ),
       body: Center(
         child: Column(
@@ -98,13 +118,14 @@ class _RegisterEmailSectionState extends State<RegisterEmailSection> {
         _userEmail = _emailController.text;
         _initialState = false;
       });
-      } catch (e) {
-        setState(() {
+    } catch (e) {
+      setState(() {
         _success = false;
         _initialState = false;
       });
-      }
     }
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Form(
@@ -119,15 +140,26 @@ class _RegisterEmailSectionState extends State<RegisterEmailSection> {
               if (value?.isEmpty??true) {
                 return 'Please enter some text';
               }
+              // Add email validation
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
+                return 'Please enter a valid email';
+              }
               return null;
             },
           ),
           TextFormField(
             controller: _passwordController,
-            decoration: InputDecoration(labelText: 'Password'),
+            decoration: InputDecoration(
+              labelText: 'Password',
+              helperText: 'Password must be at least 6 characters',
+            ),
+            obscureText: true,
             validator: (value) {
               if(value?.isEmpty??true) {
                 return 'Please enter some text';
+              }
+              if(value!.length < 6) {
+                return 'Password must be at least 6 characters';
               }
               return null;
             },
@@ -141,7 +173,7 @@ class _RegisterEmailSectionState extends State<RegisterEmailSection> {
                   _register();
                 }
               },
-              child: Text('Submit'),
+              child: Text('Register'),
             ),
           ),
           Container(
@@ -152,8 +184,7 @@ class _RegisterEmailSectionState extends State<RegisterEmailSection> {
               : _success
               ? 'Successfully registered $_userEmail'
               : 'Registration failed',
-              style: TextStyle(color: _success ? Colors.green :
-                Colors.red),
+              style: TextStyle(color: _success ? Colors.green : Colors.red),
             ),
           ),
         ],
@@ -176,7 +207,7 @@ class _EmailPasswordFormState extends State<EmailPasswordForm> {
   final TextEditingController _passwordController = TextEditingController();
   bool _success = false;
   bool _initialState = true;
-  String _userEmail ='';
+  String _userEmail = '';
 
   void _signInWithEmailAndPassword() async {
     try {
@@ -189,12 +220,12 @@ class _EmailPasswordFormState extends State<EmailPasswordForm> {
         _userEmail = _emailController.text;
         _initialState = false;
       });
-      } catch (e) {
-        setState(() {
-          _success = false;
-          _initialState = false;
-        });
-      }
+    } catch (e) {
+      setState(() {
+        _success = false;
+        _initialState = false;
+      });
+    }
   }
 
   @override
@@ -205,7 +236,7 @@ class _EmailPasswordFormState extends State<EmailPasswordForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Container(
-            child: Text('Test sign in with email and password'),
+            child: Text('Sign in with email and password'),
             padding: const EdgeInsets.all(16),
             alignment: Alignment.center,
           ),
@@ -216,18 +247,26 @@ class _EmailPasswordFormState extends State<EmailPasswordForm> {
               if (value?.isEmpty??true) {
                 return 'Please enter some text';
               }
+              // Add email validation
+              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
+                return 'Please enter a valid email like test@gsu.com';
+              }
               return null;
             },
           ),
           TextFormField(
-             controller: _passwordController,
-             decoration: InputDecoration(labelText: 'Password'),
-             validator: (value) {
+            controller: _passwordController,
+            decoration: InputDecoration(labelText: 'Password'),
+            obscureText: true,
+            validator: (value) {
               if (value?.isEmpty??true) {
                 return 'Please enter some text';
               }
+              if (value!.length < 6) {
+                return 'Password must be at least 6 characters';
+              }
               return null;
-              },
+            },
           ),
           Container(
             padding: const EdgeInsets.symmetric(vertical: 16.0),
@@ -238,7 +277,7 @@ class _EmailPasswordFormState extends State<EmailPasswordForm> {
                   _signInWithEmailAndPassword();
                 }
               },
-              child: Text('Submit'),
+              child: Text('Sign In'),
             ),
           ),
           Container(
@@ -250,8 +289,7 @@ class _EmailPasswordFormState extends State<EmailPasswordForm> {
               : _success
               ? 'Successfully signed in $_userEmail'
               : 'Sign in failed',
-              style: TextStyle(color: _success ? Colors.green :
-                Colors.red),
+              style: TextStyle(color: _success ? Colors.green : Colors.red),
             ),
           ),
         ],
