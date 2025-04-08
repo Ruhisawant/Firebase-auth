@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
-import 'profile_screen.dart';
+import 'profile_screen.dart'; // Make sure to import your profile screen
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
   runApp(MyApp());
 }
 
@@ -49,7 +47,7 @@ class _AuthenticationWrapperState extends State<AuthenticationWrapper> {
           if (user == null) {
             return MyHomePage(title: 'Firebase Auth Demo');
           }
-          return ProfileScreen();
+          return ProfileScreen(); // Redirect to ProfileScreen after login
         }
         return Scaffold(
           body: Center(
@@ -71,6 +69,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final AuthService _authService = AuthService(); // Use the AuthService
 
   @override
   Widget build(BuildContext context) {
@@ -82,8 +81,8 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            RegisterEmailSection(auth: _auth),
-            EmailPasswordForm(auth: _auth),
+            RegisterEmailSection(authService: _authService),
+            EmailPasswordForm(authService: _authService),
           ],
         ),
       ),
@@ -92,8 +91,8 @@ class _MyHomePageState extends State<MyHomePage> {
 }
 
 class RegisterEmailSection extends StatefulWidget {
-  RegisterEmailSection({Key? key, required this.auth}) : super(key: key);
-  final FirebaseAuth auth;
+  RegisterEmailSection({Key? key, required this.authService}) : super(key: key);
+  final AuthService authService;
 
   @override
   _RegisterEmailSectionState createState() => _RegisterEmailSectionState();
@@ -108,24 +107,21 @@ class _RegisterEmailSectionState extends State<RegisterEmailSection> {
   String? _userEmail;
 
   void _register() async {
-    try {
-      await widget.auth.createUserWithEmailAndPassword(
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
-      setState(() {
+    final user = await widget.authService.registerWithEmailPassword(
+      _emailController.text,
+      _passwordController.text,
+    );
+    setState(() {
+      if (user != null) {
         _success = true;
-        _userEmail = _emailController.text;
-        _initialState = false;
-      });
-    } catch (e) {
-      setState(() {
+        _userEmail = user.email;
+      } else {
         _success = false;
-        _initialState = false;
-      });
-    }
+      }
+      _initialState = false;
+    });
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Form(
@@ -137,10 +133,9 @@ class _RegisterEmailSectionState extends State<RegisterEmailSection> {
             controller: _emailController,
             decoration: InputDecoration(labelText: 'Email'),
             validator: (value) {
-              if (value?.isEmpty??true) {
+              if (value?.isEmpty ?? true) {
                 return 'Please enter some text';
               }
-              // Add email validation
               if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
                 return 'Please enter a valid email';
               }
@@ -155,10 +150,10 @@ class _RegisterEmailSectionState extends State<RegisterEmailSection> {
             ),
             obscureText: true,
             validator: (value) {
-              if(value?.isEmpty??true) {
+              if (value?.isEmpty ?? true) {
                 return 'Please enter some text';
               }
-              if(value!.length < 6) {
+              if (value!.length < 6) {
                 return 'Password must be at least 6 characters';
               }
               return null;
@@ -180,10 +175,10 @@ class _RegisterEmailSectionState extends State<RegisterEmailSection> {
             alignment: Alignment.center,
             child: Text(
               _initialState
-              ? 'Please Register'
-              : _success
-              ? 'Successfully registered $_userEmail'
-              : 'Registration failed',
+                  ? 'Please Register'
+                  : _success
+                      ? 'Successfully registered $_userEmail'
+                      : 'Registration failed',
               style: TextStyle(color: _success ? Colors.green : Colors.red),
             ),
           ),
@@ -194,8 +189,8 @@ class _RegisterEmailSectionState extends State<RegisterEmailSection> {
 }
 
 class EmailPasswordForm extends StatefulWidget {
-  EmailPasswordForm({Key? key, required this.auth}) : super(key: key);
-  final FirebaseAuth auth;
+  EmailPasswordForm({Key? key, required this.authService}) : super(key: key);
+  final AuthService authService;
 
   @override
   _EmailPasswordFormState createState() => _EmailPasswordFormState();
@@ -210,22 +205,19 @@ class _EmailPasswordFormState extends State<EmailPasswordForm> {
   String _userEmail = '';
 
   void _signInWithEmailAndPassword() async {
-    try {
-      await widget.auth.signInWithEmailAndPassword(
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
-      setState(() {
+    final user = await widget.authService.signInWithEmailPassword(
+      _emailController.text,
+      _passwordController.text,
+    );
+    setState(() {
+      if (user != null) {
         _success = true;
-        _userEmail = _emailController.text;
-        _initialState = false;
-      });
-    } catch (e) {
-      setState(() {
+        _userEmail = user.email!;
+      } else {
         _success = false;
-        _initialState = false;
-      });
-    }
+      }
+      _initialState = false;
+    });
   }
 
   @override
@@ -244,10 +236,9 @@ class _EmailPasswordFormState extends State<EmailPasswordForm> {
             controller: _emailController,
             decoration: InputDecoration(labelText: 'Email'),
             validator: (value) {
-              if (value?.isEmpty??true) {
+              if (value?.isEmpty ?? true) {
                 return 'Please enter some text';
               }
-              // Add email validation
               if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value!)) {
                 return 'Please enter a valid email like test@gsu.com';
               }
@@ -259,7 +250,7 @@ class _EmailPasswordFormState extends State<EmailPasswordForm> {
             decoration: InputDecoration(labelText: 'Password'),
             obscureText: true,
             validator: (value) {
-              if (value?.isEmpty??true) {
+              if (value?.isEmpty ?? true) {
                 return 'Please enter some text';
               }
               if (value!.length < 6) {
@@ -285,15 +276,52 @@ class _EmailPasswordFormState extends State<EmailPasswordForm> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               _initialState
-              ? 'Please sign in'
-              : _success
-              ? 'Successfully signed in $_userEmail'
-              : 'Sign in failed',
+                  ? 'Please sign in'
+                  : _success
+                      ? 'Successfully signed in $_userEmail'
+                      : 'Sign in failed',
               style: TextStyle(color: _success ? Colors.green : Colors.red),
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+class AuthService {
+  final FirebaseAuth auth = FirebaseAuth.instance;
+
+  // Register with email and password
+  Future<User?> registerWithEmailPassword(String email, String password) async {
+    try {
+      final userCredential = await auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return userCredential.user;  // Return the user object
+    } catch (e) {
+      print('Error registering user: $e');
+      return null;
+    }
+  }
+
+  // Sign in with email and password
+  Future<User?> signInWithEmailPassword(String email, String password) async {
+    try {
+      final userCredential = await auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return userCredential.user;  // Return the user object
+    } catch (e) {
+      print('Error signing in user: $e');
+      return null;
+    }
+  }
+
+  // Sign out the user
+  Future<void> signOut() async {
+    await auth.signOut();
   }
 }
